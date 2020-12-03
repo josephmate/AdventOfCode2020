@@ -1,0 +1,33 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "(Windows) Launch",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceRoot}/target/debug/p01-allocation.exe",
+            "args": ["<", "input_01.txt"],
+            "stopAtEntry": false,
+            "cwd": "${workspaceRoot}",
+            "environment": [
+				{
+					"name": "RUST_LOG",
+					"value": "error,codelldb=debug"
+				},
+				{
+					"name": "RUST_LOG_STYLE",
+					"value": "always"
+				},
+				{
+					"name": "RUST_BACKTRACE",
+					"value": "full"
+				},
+            ],
+            "externalConsole": true,
+            "sourceFileMap": {
+                "/rustc/b8cedc00407a4c56a3bda1ed605c6fc166655447": "${env:USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/lib/rustlib/src/rust"
+              },
+              "symbolSearchPath": "https://msdl.microsoft.com/download/symbols",
+        },
+    ]
+}
