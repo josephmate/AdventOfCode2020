@@ -5,8 +5,8 @@
             "name": "(Windows) Launch",
             "type": "cppvsdbg",
             "request": "launch",
-            "program": "${workspaceRoot}/target/debug/p01-allocation.exe",
-            "args": ["<", "input_01.txt"],
+            "program": "${workspaceRoot}/target/debug/solve_problem.exe",
+            "args": ["<", "sample_input_01.txt"],
             "stopAtEntry": false,
             "cwd": "${workspaceRoot}",
             "environment": [

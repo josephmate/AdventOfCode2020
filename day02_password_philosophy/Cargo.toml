@@ -1,5 +1,5 @@
 [package]
-name = "p01-allocation"
+name = "solve_problem"
 version = "0.1.0"
 authors = ["Joseph Mate <mate.joseph@gmail.com>"]
 edition = "2018"
