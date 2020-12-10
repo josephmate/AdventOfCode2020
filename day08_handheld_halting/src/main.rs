@@ -4,12 +4,14 @@ use std::collections::HashSet;
 use std::collections::HashMap;
 use std::collections::VecDeque;
 
+#[derive(Debug, Copy, Clone)]
 enum InstructionType {
     ACC,
     JMP,
     NOP
 }
 
+#[derive(Debug, Copy, Clone)]
 struct Instruction {
     instruction_type: InstructionType,
     argument: i64,
@@ -39,7 +41,7 @@ fn parse_input(
         .collect();
 }
 
-fn run_program_no_repeat(instructions: Vec<Instruction>) -> i64 {
+fn run_program_no_repeat(instructions: &Vec<Instruction>) -> i64 {
     let mut visited = HashSet::new();
     let mut current_instruction_position = 0;
     let mut accumulator = 0;
@@ -77,12 +79,51 @@ fn run_program_no_repeat(instructions: Vec<Instruction>) -> i64 {
 }
 
 fn run_program(instructions: &Vec<Instruction>) -> Option<i64> {
-    return Some(0);
+    let mut visited = HashSet::new();
+    let mut current_instruction_position: i64 = 0;
+    let mut accumulator = 0;
+
+    while !visited.contains(&current_instruction_position)
+            && current_instruction_position >= 0
+            && current_instruction_position < (instructions.len() as i64) {
+        visited.insert(current_instruction_position);
+        let current_instruction = &instructions[current_instruction_position as usize];
+        match &current_instruction.instruction_type {
+            // acc increases or decreases a single global value called the accumulator by
+            // the value given in the argument. For example, acc +7 would increase the
+            // accumulator by 7. The accumulator starts at 0. After an acc instruction,
+            // the instruction immediately below it is executed next.
+            InstructionType::ACC => {
+                accumulator += current_instruction.argument;
+                current_instruction_position += 1;
+            },
+            // jmp jumps to a new instruction relative to itself. The next instruction to
+            // execute is found using the argument as an offset from the jmp instruction;
+            // for example, jmp +2 would skip the next instruction, jmp +1 would continue
+            // to the instruction immediately below it, and jmp -20 would cause the
+            // instruction 20 lines above to be executed next.
+            InstructionType::JMP => {
+                current_instruction_position =
+                    current_instruction_position + current_instruction.argument
+            },
+            // nop stands for No OPeration - it does nothing. The instruction immediately
+            // below it is executed next.
+            _ => {
+                current_instruction_position += 1;
+            },
+        }
+    }
+
+    if current_instruction_position == (instructions.len() as i64) {
+        return Some(accumulator);
+    } else {
+        return None;
+    }
 }
 
 fn try_program_with_decorrupt(
     index: usize,
-    old_instruction: &Instruction,
+    old_instruction: Instruction,
     new_instruction_type: InstructionType,
     instructions: &mut Vec<Instruction>
 ) -> Option<i64> {
@@ -92,13 +133,13 @@ fn try_program_with_decorrupt(
     };
     instructions[index] = new_instruction;
     let result = run_program(instructions);
-    instructions[index] = *old_instruction;
+    instructions[index] = old_instruction;
     return result;
 }
 
 fn find_result_without_corruption(instructions: &mut Vec<Instruction>) -> i64 {
     for i in 0..instructions.len() {
-        let current_instruction = &instructions[i];
+        let current_instruction = instructions[i];
         match &current_instruction.instruction_type {
             InstructionType::JMP => {
                 let decorrupt_result = try_program_with_decorrupt(
@@ -132,6 +173,8 @@ fn find_result_without_corruption(instructions: &mut Vec<Instruction>) -> i64 {
 
 fn main() {
     let mut instructions = parse_input(&mut std::io::stdin().lock().lines());
-    let accumulator = run_program_no_repeat(instructions);
+    let corrupted_accumulator = run_program_no_repeat(&instructions);
+    println!("{}", corrupted_accumulator);
+    let accumulator = find_result_without_corruption(&mut instructions);
     println!("{}", accumulator);
 }
