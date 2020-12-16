@@ -6,140 +6,129 @@ use std::collections::VecDeque;
 use std::env;
 use std::cmp::Ordering;
 
-fn min_time(
-    arrival_time: i64,
-    bus_ids: Vec<i64>
-) -> i64 {
-    let mut min_id = -1;
-    let mut min_time_left = std::i64::MAX;
-
-    for bus_id in bus_ids {
-        let modulus = arrival_time % bus_id;
-        if modulus == 0 {
-            return 0;
-        }
-
-        let wait_time = bus_id - modulus;
-        if wait_time < min_time_left {
-            min_id = bus_id;
-            min_time_left = wait_time;
-        }
-    }
-    // What is the ID of the earliest bus you can take to the airport
-    // multiplied by the number of minutes you'll need to wait for
-    // that bus?
-    return min_id * min_time_left;
+#[derive(Debug)]
+enum Instruction {
+    // and_mask(0s) and or_mask (1s)
+    Mask(String),
+    // position and value
+    Mem(i64, i64),
 }
 
-fn is_special_time(
-    time: i64,
-    bus_ids: &Vec<Option<i64>>
-) -> bool {
-    for (idx, id) in bus_ids.iter().enumerate() {
-        match id {
-            Some(id) => {
-                if (time + (idx as i64)) % id != 0 {
-                    return false;
-                }
+fn parse_mask_str(mask_str: String) -> (i64, i64) {
+    let mut and_mask = 0;
+    let mut or_mask = 0;
+
+    for c in mask_str.chars() {
+        and_mask <<= 1;
+        or_mask <<= 1;
+        match c {
+            '1' => {
+                and_mask += 1;
+                or_mask += 1;
             },
-            None => (),
+            '0' => {
+                // and_mask is 0
+                // or_mask is 0
+            },
+            _ => {
+                and_mask += 1;
+                // or_mask is 0
+            },
         }
     }
 
-    return true;
+    return (and_mask, or_mask);
 }
-
 /*
-0 1  2 3 4  5 6  7
-7,13,x,x,59,x,31,19
-x % 7 == 0
-(x + 1) % 13 == 0
-(x + 4) % 59 == 0
-(x + 6) % 31 == 0
-(x + 7) % 19 == 0
-smallest such x
-
-0,7
-    0 7 14 21 28 35 42 49 56 63 70 77
-1,13
-    13 - 1 = 12
-       12    25   38    51     64  77
-    (77+0) %  7 = 0
-    (77+1) % 13 = 0
-    77+(13*7) = 168
-    (168 + 0) %  7 = 0
-    (168 + 1) % 13 = 0
-4,59
-    77+(1)(13*7)   77+(2)(13*7)  77+(3)(13*7) ....
-    168              259           350        441 532 623 714 805 896 987 1078 1169 1260 1351 1442           
-    ---------------------------
-    (168+4) % 59    (259+4) % 59  (350+4) % 59
-        54              27            0
-    (350+0) %  7 = 0 
-    (350+1) % 13 = 0
-    (350+4) % 59 = 0
-
-offset = 0, factors {}, increment = 1
-from 0 increment by 1 until x+0 % 7 = 0
-0
-0
-offset = 0 , factors{7}, increment = 1*7 = 7
-from 0 increment by 7 until x+1 % 13 = 0
-0 7 14 21 28 35 42 49 56 63 70 77
-77
-offest = 77, factors{7,13}, increment = 1*7*13 = 91
-from 77 increment by 91 until x+4 % 59 = 0
-168              259           350
-...
-
-
-1068781 % 7 = 0
-(1068781 + 1) % 13 = 0
-(1068781 + 4) % 59 = 0
-(1068781 + 6) % 31 = 0
-(1068781 + 7) % 19 = 0
+mask = XXXXXXXXXXXXXXXXXXXXXXXXXXXXX1XXXX0X
+mem[8] = 11
+mem[7] = 101
+mem[8] = 0
 */
-fn special_time(
-    bus_ids: Vec<Option<i64>>
-) -> i64 {
-    let mut offset = 0;
-    let mut factor = 1;
+fn parse_line(line: String) -> Instruction {
+    if line.starts_with("mask") {
+        let mut tokens = line.split(" = ");
+        tokens.next();
+        return Instruction::Mask(tokens.next().unwrap().to_string());
+    } else { // assume input is valid
+        let mut tokens = line.split(" = ");
+        let mut mem_addr_tokens = tokens.next().unwrap().split("[");
+        mem_addr_tokens.next();
+        let mem_addr = mem_addr_tokens.next().unwrap().split("]").next().unwrap().parse::<i64>().unwrap();
+        let mem_value = tokens.next().unwrap().parse::<i64>().unwrap();
+        return Instruction::Mem(mem_addr, mem_value);
+    }
+}
 
-    for (idx, id) in bus_ids.iter().enumerate() {
-        match id {
-            Some(id) => {
-                while (offset + (idx as i64)) % id != 0 {
-                    offset += factor;
-                }
-                factor *= id;
+fn solve1(
+    instructions: &Vec<Instruction>
+) -> i64 {
+    // start with a fake mask and assume first line is always the mask
+    let mut and_mask = 0;
+    let mut or_mask = 0;
+    let mut memory = HashMap::new();
+
+    for instruction in instructions {
+        match instruction {
+            Instruction::Mask(mask_str) => {
+                let (new_and_mask, new_or_mask) = parse_mask_str(mask_str.to_string());
+                and_mask = new_and_mask;
+                or_mask = new_or_mask;
             },
-            None => ()
+            Instruction::Mem(addr, value) => {
+                memory.insert(addr, (value & and_mask) | or_mask);
+            },
         }
     }
 
-    return offset;
+    return memory.values().sum();
 }
 
+fn apply_mask(
+    mask: &str,
+    addr: i64,
+    value: i64,
+    memory: &mut HashMap<i64, i64>
+) {
+
+}
+
+fn solve2(
+    instructions: &Vec<Instruction>
+) -> i64 {
+    // start with a fake mask and assume first line is always the mask
+    let mut mask = "";
+    let mut memory = HashMap::new();
+
+    for instruction in instructions {
+        match instruction {
+            Instruction::Mask(mask_str) => {
+                mask = mask_str;
+            },
+            Instruction::Mem(addr, value) => {
+                apply_mask(mask, *addr, *value, &mut memory);
+            },
+        }
+    }
+
+    return memory.values().sum();
+}
 
 fn main() {
-    let stdin = std::io::stdin();
-    let mut line_iter = stdin.lock().lines();
-    let arrival_time = line_iter.next().unwrap().unwrap().parse::<i64>().unwrap();
-    let bus_ids: Vec<Option<i64>> = line_iter.next().unwrap().unwrap().split(",")
-        .map(|token| {
-            if token.eq("x") {
-                None
-            } else {
-                Some(token.parse::<i64>().unwrap())
-            }
-        })
+    let args: Vec<String> = env::args().collect();
+    let should_solve1 = args[1].parse::<bool>().unwrap();
+    let should_solve2 = args[2].parse::<bool>().unwrap();
+
+    let instructions: Vec<Instruction> = std::io::stdin().lock().lines()
+        .map(|line_result| line_result.unwrap())
+        .map(parse_line)
         .collect();
-    let bus_id_copy = bus_ids.to_vec();
-    let bus_ids = bus_ids.iter()
-        .filter(|opt| opt.is_some())
-        .map(|opt| opt.unwrap())
-        .collect();
-    
-    println!("{}", min_time(arrival_time, bus_ids));
-    println!("{}", special_time(bus_id_copy));
+
+    if should_solve1 {
+        println!("{}", solve1(&instructions));
+    }
+    if should_solve2 {
+        println!("{}", solve2(&instructions));
+    }
 }
+
