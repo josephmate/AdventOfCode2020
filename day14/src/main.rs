@@ -90,7 +90,38 @@ fn apply_mask(
     value: i64,
     memory: &mut HashMap<i64, i64>
 ) {
+    let mut current_bit_mask = 34359738368; // 2^35 then 36th bit is 1;
+    let mut mem_to_set: Vec<i64> = Vec::new();
+    mem_to_set.push(0);
 
+    for c in mask.chars() {
+        let current_bit = addr & current_bit_mask;
+        match c {
+            '0' => {
+                mem_to_set = mem_to_set.iter()
+                    .map(|v| v + current_bit)
+                    .collect();
+                    
+            },
+            '1' => {
+                mem_to_set = mem_to_set.iter()
+                    .map(|v| v + current_bit_mask)
+                    .collect();
+            },
+            _ => {
+                let mut additional: Vec<i64> = mem_to_set.iter()
+                    .map(|v| v + current_bit_mask)
+                    .collect();
+                mem_to_set.append(&mut additional);
+            },
+        }
+
+        current_bit_mask >>= 1;
+    }
+
+    for mem_posn in mem_to_set {
+        memory.insert(mem_posn, value);
+    }
 }
 
 fn solve2(

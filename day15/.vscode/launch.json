@@ -6,7 +6,7 @@
             "type": "cppvsdbg",
             "request": "launch",
             "program": "${workspaceRoot}/target/debug/solve_problem.exe",
-            "args": ["false", "true", "<", "sample_input_02.txt"],
+            "args": ["<", "sample_input_01.txt"],
             "stopAtEntry": false,
             "cwd": "${workspaceRoot}",
             "environment": [
