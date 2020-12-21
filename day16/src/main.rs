@@ -106,24 +106,88 @@ fn potentially_valid_ticket(
     return true;
 }
 
+// if there is any ticket that does not validate for that posn,
+// then that posn is not valid
+fn field_valid_in_all_tickets(
+    validation: (usize, usize, usize, usize),
+    field_idx: usize,
+    posn: usize,
+    nearby_tickets: &Vec<Vec<usize>>
+) -> Option<(usize, usize, usize)> {
+    let (first_lower, first_upper, second_lower, second_upper) = validation; 
+    for nearby_ticket in nearby_tickets {
+        let ticket_field = nearby_ticket[posn];
+        let (first_lower, first_upper, second_lower, second_upper) = validation;
+        if !(first_lower <= ticket_field && ticket_field <= first_upper)
+            && !(second_lower <= ticket_field && ticket_field <= second_upper)
+        {
+            return Some((field_idx, posn, ticket_field));
+        }
+    }
+    return None;
+}
+
 fn solve_fields(
     validations: &Vec<(usize, usize, usize, usize)>,
     nearby_tickets: &Vec<Vec<usize>>
 ) -> Vec<usize> {
-    let mut valid_tickets = Vec::new();
+    let mut valid_tickets: Vec<Vec<usize>> = Vec::new();
     for nearby_ticket in nearby_tickets {
         if potentially_valid_ticket(nearby_ticket, validations) {
-            valid_tickets.push(nearby_ticket);
+            valid_tickets.push(nearby_ticket.to_vec());
         }
     }
 
-    return vec!(valid_tickets.len());
+    // map of field to 
+    let mut potential_fields_to_positions = HashMap::new();
+    for field_idx in 0 .. validations.len() {
+        let validation = validations[field_idx];
+        let mut positions = HashSet::new();
+        for posn in 0 .. validations.len() {
+            match field_valid_in_all_tickets(validation, field_idx, posn, &valid_tickets)  {
+                Some(tuple) => {
+                    //println!("removed field posn value: {:?}", tuple);
+                },
+                None => {
+                    positions.insert(posn);
+                },
+            }
+        }
+        potential_fields_to_positions.insert(field_idx, positions);
+    }
+
+    let mut field_to_posn = HashMap::new();
+    // if the field only has one position to go into then that's the one
+    // loop until map is empty
+    while !potential_fields_to_positions.is_empty() {
+        //println!("{:?}", potential_fields_to_positions);
+        let keys: Vec<usize> = potential_fields_to_positions.keys().cloned().collect();
+        for k in keys {
+            let potential_posns = potential_fields_to_positions[&k].len();
+            let potential_posn = potential_fields_to_positions[&k].iter().cloned().next().unwrap();
+            if potential_posns == 1 {
+                field_to_posn.insert(k, potential_posn);
+                potential_fields_to_positions.remove(&k);
+                for value in potential_fields_to_positions.values_mut() {
+                    value.remove(&potential_posn);
+                }
+            }
+        }
+    }
+
+    let mut result = Vec::new();
+    for field_idx in 0 .. validations.len() {
+        result.push(field_to_posn[&field_idx]);
+    }
+
+    return result;
 }
 
 fn main() {
     let args: Vec<String> = env::args().collect();
     let part1 = args[1].parse::<bool>().unwrap();
     let part2 = args[2].parse::<bool>().unwrap();
+    let part3 = args[3].parse::<bool>().unwrap();
 
     let (validations, my_ticket, nearby_tickets) = 
         parse(& mut std::io::stdin().lock().lines()
@@ -134,7 +198,16 @@ fn main() {
         println!("{}", validate_tickets(&validations, &nearby_tickets));
     }
     if part2 {
-        println!("{:?}", solve_fields(&validations, &nearby_tickets));
+        let field_mapping = solve_fields(&validations, &nearby_tickets);
+        println!("{:?}", field_mapping);
+        if part3 {
+            let mut my_ticket_product = 1;
+            for i in 0 .. 6 {
+                my_ticket_product *= my_ticket[field_mapping[i]];
+            }
+            println!("{:?}", my_ticket_product);
+        }
     }
+    
 }
 
