@@ -12,6 +12,7 @@ use std::env;
 #[allow(unused_imports)]
 use std::cmp::Ordering;
 
+#[derive(Debug)]
 enum Rule {
   // (a & b) | (c & d)
   Or(Vec<usize>, Vec<usize>),
@@ -179,18 +180,88 @@ fn is_valid_substring(
   return false;
 }
 
-fn is_valid(
-  line: &String,
+fn and(
+  depth: usize,
+  anded_rules: &Vec<usize>,
+  line: &str,
   rules: &HashMap<usize, Rule>
-) -> bool {
+) -> HashSet<usize> {
+  let mut consumed = HashSet::new();
+  consumed.insert(0);
+  for rule in anded_rules {
+    let mut new_consumed = HashSet::new();
+    for current_idx in &consumed {
+      let valid_paths = is_valid_impl(depth+1, *rule, &line[*current_idx .. line.len()], rules);
+      //println!("{}and {} {} {} {} {}",
+      //  std::iter::repeat(" ").take(depth*2).collect::<String>(),
+      //  rule, is_valid, consumed, (line.len() - current_idx), &line[current_idx .. line.len()]);
 
-  for i in 0 .. line.len() {
-    if is_valid_substring(&line[i..line.len()], rules) {
-      return true;
+      if !valid_paths.is_empty() {
+        new_consumed = new_consumed.union(&valid_paths).map(|s| *s).collect();
+      }
+    }
+    if new_consumed.is_empty() {
+      return HashSet::new();
     }
   }
+  return consumed.into_iter().collect();
+}
 
-  return false;
+fn is_valid_impl(
+  depth: usize,
+  current_rule_id: usize,
+  line: &str,
+  rules: &HashMap<usize, Rule>
+      // whether or not the rules are satisfied
+            // the number of characters consumed
+) -> HashSet<usize> {
+  if depth > 1000 {
+    return HashSet::new();
+  }
+  if line.is_empty() {
+    return HashSet::new();
+  }
+  let current_rule = &rules[&current_rule_id];
+  //println!("{}{} {:?} {} {}",
+  //  std::iter::repeat(" ").take(depth*2).collect::<String>(),
+  //  current_rule_id, current_rule, line.len(), line);
+  match current_rule {
+    Rule::Character(ch) => {
+      if line[0..1] == ch.to_string() {
+        return vec![1].into_iter().collect();
+      } else {
+        return HashSet::new();
+      }
+    },
+    Rule::Or(a_rules, b_rules) => {
+      let a_valids = and(depth+1, a_rules, line, rules);
+      let b_valids = and(depth+1, b_rules, line, rules);
+      if !a_valids.is_empty() && !b_valids.is_empty() {
+        return a_valids.union(&b_valids).map(|s| *s).collect();
+      } else if !b_valids.is_empty() {
+        return b_valids;
+      } else if !a_valids.is_empty() {
+        return a_valids;
+      } else {
+        return HashSet::new();
+      }
+    },
+    Rule::And(and_rules) => {
+      return and(depth+1, and_rules, line, rules);
+    },
+  }
+}
+
+fn is_valid(
+  line: &str,
+  rules: &HashMap<usize, Rule>
+      // whether or not the rules are satisfied
+            // the number of characters consumed
+) -> bool {
+  let valid_paths = is_valid_impl(0, 0, line, rules);
+  return valid_paths.iter()
+    .filter(|path_consumed| **path_consumed == line.len())
+    .count() >= 1;
 }
 
 fn main() {
