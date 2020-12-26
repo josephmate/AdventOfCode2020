@@ -192,9 +192,12 @@ fn and(
     let mut new_consumed = HashSet::new();
     for current_idx in &consumed {
       let valid_paths = is_valid_impl(depth+1, *rule, &line[*current_idx .. line.len()], rules);
-      //println!("{}and {} {} {} {} {}",
+      let valid_paths: HashSet<usize> = valid_paths.iter()
+        .map(|v| v+current_idx)
+        .collect();
+      //println!("{}and {} {:?} {:?} {} {}",
       //  std::iter::repeat(" ").take(depth*2).collect::<String>(),
-      //  rule, is_valid, consumed, (line.len() - current_idx), &line[current_idx .. line.len()]);
+      //  rule, valid_paths, consumed, (line.len() - current_idx), &line[*current_idx .. line.len()]);
 
       if !valid_paths.is_empty() {
         new_consumed = new_consumed.union(&valid_paths).map(|s| *s).collect();
@@ -203,6 +206,7 @@ fn and(
     if new_consumed.is_empty() {
       return HashSet::new();
     }
+    consumed = new_consumed;
   }
   return consumed.into_iter().collect();
 }
