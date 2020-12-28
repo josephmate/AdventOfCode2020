@@ -84,9 +84,9 @@ fn do_tiles_connect(
   false
 }
 
-fn solve(
+fn get_corners(
   tiles: &[Tile],
-) -> usize {
+) -> Vec<&Tile> {
   let mut corner_tiles: Vec<&Tile> = Vec::new();
 
   for tile in tiles {
@@ -99,7 +99,77 @@ fn solve(
     }
   }
 
-  corner_tiles.iter().map(|tile| tile.id).product()
+  corner_tiles
+}
+
+fn sqrt(a: usize) -> usize {
+  for i in 1..a {
+    if i * i == a {
+      return i;
+    }
+  }
+  a
+}
+
+fn get_dimension(
+  tiles: &[Tile],
+) -> usize {
+  sqrt(tiles.len())
+}
+
+fn get_tile_right(
+  tiles: &[Tile],
+  tile_left: &Tile,
+) -> Tile {
+  Tile {
+    id: 0,
+    image: Vec::new()
+  }
+}
+
+fn get_tile_below(
+  tiles: &[Tile],
+  tile_above: &Tile,
+) -> Tile {
+  Tile {
+    id: 0,
+    image: Vec::new()
+  }
+}
+
+fn assemble_puzzle<'a>(
+  tiles: &'a [Tile],
+  corner_tiles: &'a [&Tile]
+) -> Vec<Vec<Tile>> {
+  let dim = get_dimension(tiles);
+  let mut result = Vec::new();
+  result.push(Vec::new());
+  let first_corner = corner_tiles.iter().next().unwrap();
+  // need to clone since some tiles will need to be flipped or rotated
+  result[0].push(Tile {
+    id: first_corner.id,
+    image: first_corner.image.to_vec(),
+  });
+
+  for i in 1..dim {
+    let prev_tile = result[0].last().cloned().unwrap();
+    result[0].push(get_tile_right(tiles, &prev_tile));
+  }
+
+  for i in 1..dim {
+    for j in 0..dim {
+      if j == 0 {
+        let prev_tile = result[i-1].first().cloned().unwrap();
+        result.push(Vec::new());
+        result[i].push(get_tile_below(tiles, &prev_tile));
+      } else {
+        let prev_tile = result[i].last().cloned().unwrap();
+        result[i].push(get_tile_right(tiles, &prev_tile));
+      }
+    }
+  }
+
+  return result;
 }
 
 fn main() {
@@ -109,7 +179,10 @@ fn main() {
     .map(|line_result| line_result.unwrap())
   );
 
-  println!("{}", solve(&tiles));
+  let corner_tiles = get_corners(&tiles);
+  println!("{}", corner_tiles.iter().map(|tile| tile.id).product::<usize>());
+
+  let assembled_tiles = assemble_puzzle(&tiles, &corner_tiles);
 }
 
 #[cfg(test)]
