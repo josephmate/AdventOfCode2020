@@ -20,13 +20,49 @@ struct Tile {
 
 fn copy_tile(tile: &Tile) -> Tile {
   let mut copied = Vec::new();
-  for line in tile.image {
+  for line in &tile.image {
     copied.push(line.to_string());
   }
   Tile {
     id: tile.id,
     image: copied,
   }
+}
+
+/*
+1 2 3
+4 5 6
+7 8 9
+
+3 6 9
+2 5 8
+1 4 7
+*/
+fn rotate_counter_clockwise(mut tile: Tile) -> Tile {
+  let mut rotated = Vec::new();
+  let image_size = tile.image.len();
+
+  for i in 0 .. image_size {
+    rotated.push(String::new());
+    for j in 0 .. image_size {
+      rotated[i].push(tile.image[j].chars().nth(image_size-i-1).unwrap());
+    }
+  }
+
+  tile.image = rotated;
+  tile
+}
+
+fn flip_vertically(mut tile: Tile) -> Tile {
+  tile.image = tile.image.iter().rev().map(|s| s.to_string()).collect();
+  tile
+}
+
+fn flip_horizontally(mut tile: Tile) -> Tile {
+  for i in 0 .. tile.image.len() {
+    tile.image[i] = tile.image[i].chars().rev().collect::<String>();
+  }
+  tile
 }
 
 fn parse_input(
@@ -117,7 +153,7 @@ fn get_edges_with_direction(
 fn get_edges(
   tile: &Tile
 ) -> Vec<String> {
-  get_edges_with_direction(tile).iter().map(|(direction, edge)| edge.to_string()).collect()
+  get_edges_with_direction(tile).iter().map(|(_, edge)| edge.to_string()).collect()
 }
 
 fn do_tiles_connect(
@@ -183,9 +219,6 @@ fn tile_has_matching_edge(
   None
 }
 
-
-
-
 /*
 Left, no op
 1
@@ -201,24 +234,41 @@ Right
     1
 
 Down
+    *
+    *
 1 2 3  // does not reverse
        // if the match is reverse, we'll need to flip
 */
 fn rotate_tile_edge_to_left(
   tile: &Tile,
-  edge_direction: EdgeDirection
+  edge_direction: EdgeDirection,
   text_direction: TextDirection,
 ) -> Tile {
   match edge_direction {
-    EdgeDirection::Up => (),
-    EdgeDirection::Down => (),
+    EdgeDirection::Up => {
+      match text_direction {
+        TextDirection::Forwards => flip_vertically(rotate_counter_clockwise(copy_tile(tile))),
+        TextDirection::Reverse => rotate_counter_clockwise(copy_tile(tile)),
+      }
+    },
+    EdgeDirection::Down => {
+      match text_direction {
+        TextDirection::Forwards => rotate_counter_clockwise(rotate_counter_clockwise(rotate_counter_clockwise(copy_tile(tile)))),
+        TextDirection::Reverse => flip_vertically(rotate_counter_clockwise(rotate_counter_clockwise(rotate_counter_clockwise(copy_tile(tile))))),
+      }
+    },
     EdgeDirection::Left => {
       match text_direction {
         TextDirection::Forwards => copy_tile(tile),
-        TextDirection::Reverse => (),
+        TextDirection::Reverse => flip_vertically(copy_tile(tile)),
       }
     },
-    EdgeDirection::Right => (),
+    EdgeDirection::Right => {
+      match text_direction {
+        TextDirection::Forwards => flip_vertically(rotate_counter_clockwise(rotate_counter_clockwise(copy_tile(tile)))),
+        TextDirection::Reverse => rotate_counter_clockwise(rotate_counter_clockwise(copy_tile(tile))),
+      }
+    },
   }
 }
 
@@ -245,10 +295,75 @@ fn get_tile_right(
   }
 }
 
+/*
+Up
+1 2 3
+
+Right
+    1
+    2
+    3
+
+Down
+    *
+    *
+3 2 1  // reversed
+
+Left, // reversed
+3
+2
+1
+*/
+fn rotate_tile_edge_to_top(
+  tile: &Tile,
+  edge_direction: EdgeDirection,
+  text_direction: TextDirection,
+) -> Tile {
+  match edge_direction {
+    EdgeDirection::Up => {
+      match text_direction {
+        TextDirection::Forwards => copy_tile(tile),
+        TextDirection::Reverse => flip_horizontally(copy_tile(tile)),
+      }
+    },
+    EdgeDirection::Down => {
+      match text_direction {
+        TextDirection::Forwards => flip_horizontally(rotate_counter_clockwise(rotate_counter_clockwise(copy_tile(tile)))),
+        TextDirection::Reverse => rotate_counter_clockwise(rotate_counter_clockwise(copy_tile(tile))),
+      }
+    },
+    EdgeDirection::Left => {
+      match text_direction {
+        TextDirection::Forwards => flip_horizontally(rotate_counter_clockwise(rotate_counter_clockwise(rotate_counter_clockwise(copy_tile(tile))))),
+        TextDirection::Reverse => rotate_counter_clockwise(rotate_counter_clockwise(rotate_counter_clockwise(copy_tile(tile)))),
+      }
+    },
+    EdgeDirection::Right => {
+      match text_direction {
+        TextDirection::Forwards => rotate_counter_clockwise(copy_tile(tile)),
+        TextDirection::Reverse => flip_horizontally(rotate_counter_clockwise(copy_tile(tile))),
+      }
+    },
+  }
+}
+
 fn get_tile_below(
   tiles: &[Tile],
   tile_above: &Tile,
 ) -> Tile {
+  let bottom_side = get_right_edge(tile_above);
+
+  for other_tile in tiles {
+    // the tile always matches with itself. exclude it
+    if other_tile.id != tile_above.id {
+      if let Some((edge_direction, text_direction)) = tile_has_matching_edge(&bottom_side, other_tile) {
+        // found the matching edge. need to rotate and flip it so it matches
+        return rotate_tile_edge_to_top(other_tile, edge_direction, text_direction);
+      }
+    }
+  }
+
+  // This should never happen. There should always be one and only one matching edge.
   Tile {
     id: 0,
     image: Vec::new()
@@ -275,19 +390,23 @@ fn assemble_puzzle<'a>(
   }
 
   for i in 1..dim {
+    result.push(Vec::new());
     for j in 0..dim {
-      if j == 0 {
-        let prev_tile = result[i-1].first().cloned().unwrap();
-        result.push(Vec::new());
-        result[i].push(get_tile_below(tiles, &prev_tile));
-      } else {
-        let prev_tile = result[i].last().cloned().unwrap();
-        result[i].push(get_tile_right(tiles, &prev_tile));
-      }
+      let above_tile = &(result[i-1][j].clone());
+      result[i].push(get_tile_below(tiles, above_tile));
     }
   }
 
-  return result;
+  result
+}
+
+fn print_tiles(assembled_tiles: &[Vec<Tile>]) {
+  for row in assembled_tiles {
+    for col in row {
+      print!("{} ", col.id);
+    }
+    println!("");
+  }
 }
 
 fn main() {
@@ -301,7 +420,7 @@ fn main() {
   println!("{}", corner_tiles.iter().map(|tile| tile.id).product::<usize>());
 
   let assembled_tiles = assemble_puzzle(&tiles, &corner_tiles);
-
+  print_tiles(&assembled_tiles);
 }
 
 #[cfg(test)]
