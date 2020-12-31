@@ -114,6 +114,13 @@ fn get_right_edge(
   right
 }
 
+fn get_bottom_edge(
+  tile: &Tile
+) -> String {
+  tile.image.iter().last().unwrap().to_string()
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
 enum TextDirection {
   Forwards,
   Reverse
@@ -132,6 +139,7 @@ fn edge_match(
   }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
 enum EdgeDirection {
   Up,
   Down,
@@ -144,7 +152,7 @@ fn get_edges_with_direction(
 ) -> Vec<(EdgeDirection, String)> {
   vec![
     (EdgeDirection::Up, tile.image[0].to_string()),
-    (EdgeDirection::Down, tile.image[tile.image.len()-1].to_string()),
+    (EdgeDirection::Down, get_bottom_edge(tile)),
     (EdgeDirection::Right, get_right_edge(tile)),
     (EdgeDirection::Left, get_left_edge(tile)),
   ]
@@ -156,22 +164,47 @@ fn get_edges(
   get_edges_with_direction(tile).iter().map(|(_, edge)| edge.to_string()).collect()
 }
 
+fn tile_has_matching_edge(
+  edge: &String,
+  tile: &Tile,
+) -> Option<(EdgeDirection, TextDirection)> {
+  for (direction, other_edge) in get_edges_with_direction(tile) {
+    if let Some(text_direction) = edge_match(edge, &other_edge) {
+      return Some((direction, text_direction));
+    }
+  }
+  None
+}
+
 fn do_tiles_connect(
   a: &Tile,
   b: &Tile,
-) -> bool {
-  let a_edges = get_edges(a);
+) -> Option<(EdgeDirection, TextDirection)> {
+  let a_edges = get_edges_with_direction(a);
   let b_edges = get_edges(b);
-  
-  for a_edge in &a_edges {
+
+  for (edge_direction, a_edge) in &a_edges {
     for b_edge in &b_edges {
-      if edge_match(a_edge, b_edge).is_some() {
-        return true;
+      if let Some(text_direction) = edge_match(a_edge, b_edge) {
+        return Some((*edge_direction, text_direction));
       }
     }
   }
 
-  false
+  None
+}
+
+fn get_connected_edge(
+  tile: &Tile,
+  tiles: &[Tile],
+) -> Vec<(EdgeDirection, TextDirection)> {
+  tiles.iter()
+    .filter(|other_tile| tile.id != other_tile.id)
+    .filter(|other_tile| tile.id != other_tile.id)
+    .map(|other_tile| do_tiles_connect(tile, other_tile))
+    .filter(|option| option.is_some())
+    .map(|option| option.unwrap())
+    .collect()
 }
 
 fn get_corners(
@@ -180,11 +213,7 @@ fn get_corners(
   let mut corner_tiles: Vec<&Tile> = Vec::new();
 
   for tile in tiles {
-    if tiles.iter()
-        .filter(|other_tile| tile.id != other_tile.id)
-        .filter(|other_tile| do_tiles_connect(tile, other_tile))
-        .count() == 2
-    {
+    if get_connected_edge(tile, tiles).len() == 2 {
       corner_tiles.push(tile);
     }
   }
@@ -205,18 +234,6 @@ fn get_dimension(
   tiles: &[Tile],
 ) -> usize {
   sqrt(tiles.len())
-}
-
-fn tile_has_matching_edge(
-  edge: &String,
-  tile: &Tile,
-) -> Option<(EdgeDirection, TextDirection)> {
-  for (direction, other_edge) in get_edges_with_direction(tile) {
-    if let Some(text_direction) = edge_match(edge, &other_edge) {
-      return Some((direction, text_direction));
-    }
-  }
-  None
 }
 
 /*
@@ -291,7 +308,18 @@ fn get_tile_right(
   // This should never happen. There should always be one and only one matching edge.
   Tile {
     id: 0,
-    image: Vec::new()
+    image: vec![
+      "..........".to_string(),
+      "..........".to_string(),
+      "..........".to_string(),
+      "..........".to_string(),
+      "..........".to_string(),
+      "..........".to_string(),
+      "..........".to_string(),
+      "..........".to_string(),
+      "..........".to_string(),
+      "..........".to_string(),
+    ],
   }
 }
 
@@ -351,7 +379,7 @@ fn get_tile_below(
   tiles: &[Tile],
   tile_above: &Tile,
 ) -> Tile {
-  let bottom_side = get_right_edge(tile_above);
+  let bottom_side = get_bottom_edge(tile_above);
 
   for other_tile in tiles {
     // the tile always matches with itself. exclude it
@@ -366,7 +394,58 @@ fn get_tile_below(
   // This should never happen. There should always be one and only one matching edge.
   Tile {
     id: 0,
-    image: Vec::new()
+    image: vec![
+      "..........".to_string(),
+      "..........".to_string(),
+      "..........".to_string(),
+      "..........".to_string(),
+      "..........".to_string(),
+      "..........".to_string(),
+      "..........".to_string(),
+      "..........".to_string(),
+      "..........".to_string(),
+      "..........".to_string(),
+    ],
+  }
+}
+
+fn rotate_until_top_right_corner(
+  tile: Tile,
+  tiles: &[Tile],
+) -> Tile {
+  let connected_edges: Vec<EdgeDirection> = get_connected_edge(&tile, tiles)
+    .iter()
+    .map(|(edge_direction, _)| *edge_direction)
+    .collect();
+
+  if connected_edges.contains(&EdgeDirection::Right) && connected_edges.contains(&EdgeDirection::Down) {
+    /*
+        1
+        2
+    1 2 3
+    */
+    tile
+  } else if connected_edges.contains(&EdgeDirection::Left) && connected_edges.contains(&EdgeDirection::Down) {
+    /*
+    1
+    2
+    3 2 1
+    */
+    rotate_counter_clockwise(tile)
+  } else if connected_edges.contains(&EdgeDirection::Left) && connected_edges.contains(&EdgeDirection::Down) {
+    /*
+    1 2 3
+    2
+    3
+    */
+    rotate_counter_clockwise(rotate_counter_clockwise(tile))
+  } else {
+    /*
+    1 2 3
+        2
+        1
+    */
+    rotate_counter_clockwise(rotate_counter_clockwise(rotate_counter_clockwise(tile)))
   }
 }
 
@@ -377,12 +456,12 @@ fn assemble_puzzle<'a>(
   let dim = get_dimension(tiles);
   let mut result = Vec::new();
   result.push(Vec::new());
-  let first_corner = corner_tiles.iter().next().unwrap();
+  let first_corner = rotate_until_top_right_corner(
+    copy_tile(corner_tiles.iter().next().unwrap()),
+    tiles
+  );
   // need to clone since some tiles will need to be flipped or rotated
-  result[0].push(Tile {
-    id: first_corner.id,
-    image: first_corner.image.to_vec(),
-  });
+  result[0].push(first_corner);
 
   for _i in 1..dim {
     let prev_tile = result[0].last().cloned().unwrap();
