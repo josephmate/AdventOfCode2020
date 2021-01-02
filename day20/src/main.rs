@@ -488,6 +488,53 @@ fn print_tiles(assembled_tiles: &[Vec<Tile>]) {
   }
 }
 
+fn get_image(assembled_tiles: &[Vec<Tile>]) -> Vec<String> {
+  let mut result = Vec::new();
+  
+  let tile_rows = assembled_tiles.len();
+  let rows_in_tile = assembled_tiles[0][0].image.len();
+  let tile_cols = assembled_tiles.len();
+  let cols_in_tile = assembled_tiles[0][0].image.len();
+  for tile_row in 0..tile_rows {
+    for row_in_tile in 1..(rows_in_tile-1) {
+      let mut row = String::new();
+      for tile_col in 0 .. tile_cols {
+        for col_in_tile in 1..(cols_in_tile-1) {
+          row.push(assembled_tiles[tile_row][tile_col].image[row_in_tile].chars().nth(col_in_tile).unwrap());
+        }
+      }
+      result.push(row);
+    }
+  }
+
+  result
+}
+
+fn search_for_pattern(
+  image: &[String]
+) -> usize {
+  let pattern = vec![
+    "                  # ".to_string(),
+    "#    ##    ##    ###".to_string(),
+    " #  #  #  #  #  #   ".to_string(),
+  ];
+
+  for i in 0..image.len()-2 {
+    for j in 0..image.len()-19 {
+      let mut wave_count = 0;
+      let mut is_monster = true;
+      for i_delta in 0..3 {
+        for j_delta in 0..20 {
+          if image[i+i_delta][j+j_delta]
+          // TODO try all rotations and flips of image
+        }
+      }
+    }
+  }
+
+  0
+}
+
 fn main() {
   // let args: Vec<String> = env::args().collect();
   // &mut std::io::stdin().lock().lines()
@@ -500,6 +547,9 @@ fn main() {
 
   let assembled_tiles = assemble_puzzle(&tiles, &corner_tiles);
   print_tiles(&assembled_tiles);
+  let assembled_image = get_image(&assembled_tiles);
+  println!("{}", &assembled_image.join("\n"));
+  println!("{}", search_for_pattern(&assembled_image));
 }
 
 #[cfg(test)]
