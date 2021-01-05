@@ -18,14 +18,18 @@ struct Tile {
   image: Vec<String>
 }
 
-fn copy_tile(tile: &Tile) -> Tile {
+fn copy_image(image: &[String]) -> Vec<String> {
   let mut copied = Vec::new();
-  for line in &tile.image {
+  for line in image {
     copied.push(line.to_string());
   }
+  copied
+}
+
+fn copy_tile(tile: &Tile) -> Tile {
   Tile {
     id: tile.id,
-    image: copied,
+    image: copy_image(&tile.image),
   }
 }
 
@@ -38,30 +42,41 @@ fn copy_tile(tile: &Tile) -> Tile {
 2 5 8
 1 4 7
 */
-fn rotate_counter_clockwise(mut tile: Tile) -> Tile {
+fn rotate_image_counter_clockwise(image: Vec<String>) -> Vec<String> {
   let mut rotated = Vec::new();
-  let image_size = tile.image.len();
-
+  let image_size = image.len();
   for i in 0 .. image_size {
     rotated.push(String::new());
     for j in 0 .. image_size {
-      rotated[i].push(tile.image[j].chars().nth(image_size-i-1).unwrap());
+      rotated[i].push(image[j].chars().nth(image_size-i-1).unwrap());
     }
   }
+  rotated
+}
 
-  tile.image = rotated;
+fn rotate_counter_clockwise(mut tile: Tile) -> Tile {
+  tile.image = rotate_image_counter_clockwise(tile.image);
   tile
+}
+
+fn flip_image_vertically(image: Vec<String>) -> Vec<String> {
+  image.iter().rev().map(|s| s.to_string()).collect()
 }
 
 fn flip_vertically(mut tile: Tile) -> Tile {
-  tile.image = tile.image.iter().rev().map(|s| s.to_string()).collect();
+  tile.image = flip_image_vertically(tile.image);
   tile
 }
 
-fn flip_horizontally(mut tile: Tile) -> Tile {
-  for i in 0 .. tile.image.len() {
-    tile.image[i] = tile.image[i].chars().rev().collect::<String>();
+fn flip_image_horizontally(mut image: Vec<String>) -> Vec<String> {
+  for i in 0 .. image.len() {
+    image[i] = image[i].chars().rev().collect::<String>();
   }
+  image
+}
+
+fn flip_horizontally(mut tile: Tile) -> Tile {
+  tile.image = flip_image_horizontally(tile.image);
   tile
 }
 
@@ -510,29 +525,104 @@ fn get_image(assembled_tiles: &[Vec<Tile>]) -> Vec<String> {
   result
 }
 
-fn search_for_pattern(
-  image: &[String]
-) -> usize {
+fn find_monster(
+  image: &[String],
+  i: usize,
+  j: usize,
+) -> HashSet<(usize,usize)> {
   let pattern = vec![
     "                  # ".to_string(),
     "#    ##    ##    ###".to_string(),
     " #  #  #  #  #  #   ".to_string(),
   ];
 
-  for i in 0..image.len()-2 {
-    for j in 0..image.len()-19 {
-      let mut wave_count = 0;
-      let mut is_monster = true;
-      for i_delta in 0..3 {
-        for j_delta in 0..20 {
-          if image[i+i_delta][j+j_delta]
-          // TODO try all rotations and flips of image
+  let mut monster_positions = HashSet::new();
+  let mut is_monster = true;
+  for i_delta in 0..3 {
+    for j_delta in 0..20 {
+      match pattern[i_delta].chars().nth(j_delta).unwrap() {
+        '#' => {
+          if image[i+i_delta].chars().nth(j+j_delta).unwrap() != '#' {
+            is_monster = false;
+          } else {
+            monster_positions.insert((i+i_delta, j+j_delta));
+          }
+        },
+        _ => {
+
+        },
+      }
+    }
+  }
+
+  if is_monster {
+    monster_positions
+  } else {
+    HashSet::new()
+  }
+}
+
+fn search_for_pattern(
+  image: &[String]
+) -> usize {
+
+  let orientations = vec![
+    // 1 2
+    // 3 4
+    copy_image(image),
+    // 2 4
+    // 1 3
+    rotate_image_counter_clockwise(copy_image(image)),
+    // 4 3
+    // 2 1
+    rotate_image_counter_clockwise(rotate_image_counter_clockwise(copy_image(image))),
+    // 3 1
+    // 4 2
+    rotate_image_counter_clockwise(rotate_image_counter_clockwise(rotate_image_counter_clockwise(copy_image(image)))),
+    // 3 4
+    // 1 2
+    flip_image_vertically(copy_image(image)),
+    // 4 2
+    // 3 1
+    rotate_image_counter_clockwise(flip_image_vertically(copy_image(image))),
+    // 2 1
+    // 4 3
+    rotate_image_counter_clockwise(rotate_image_counter_clockwise(flip_image_vertically(copy_image(image)))),
+    // 1 3
+    // 2 4
+    rotate_image_counter_clockwise(rotate_image_counter_clockwise(rotate_image_counter_clockwise(flip_image_vertically(copy_image(image))))),
+  ];
+
+  let mut waves = 0;
+  let mut correct_orientation = None;
+  for current_orientation in &orientations {
+    for i in 0..current_orientation.len()-2 {
+      for j in 0..current_orientation.len()-19 {
+        if !find_monster(current_orientation, i, j).is_empty() {
+          correct_orientation = Some(current_orientation);
         }
       }
     }
   }
 
-  0
+  let correct_orientation = correct_orientation.unwrap();
+  let waves_count = correct_orientation.iter()
+    .flat_map(|s| s.chars())
+    .filter(|c| *c == '#')
+    .count();
+  
+  let mut monster_positions = HashSet::new();
+  for i in 0..correct_orientation.len()-2 {
+    for j in 0..correct_orientation.len()-19 {
+      let a_monster = find_monster(correct_orientation, i, j);
+      if !a_monster.is_empty() {
+        for monster_piece in a_monster {
+          monster_positions.insert(monster_piece);
+        }
+      }
+    }
+  }
+  waves_count - monster_positions.len()
 }
 
 fn main() {
