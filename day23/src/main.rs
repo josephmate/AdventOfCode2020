@@ -6,6 +6,93 @@ use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::env;
 use std::cmp::Ordering;
+use std::rc::Rc;
+
+/*
+head                       tail
+|                            |
+v                            v
+1  --next-->  2  --next-->   3
+^            | ^            |
+|           /  |           /          
+ \-----prev     \-----prev
+
+*/
+struct LinkedList {
+  head: Option<Rc<Node>>,
+  tail: Option<Rc<Node>>
+}
+
+struct Node {
+  data: usize,
+  next: Option<Rc<Node>>,
+  prev: Option<Rc<Node>>
+}
+
+fn append(
+  list: &mut LinkedList,
+  data: usize
+) -> Rc<Node>
+{
+  let new_node = Rc::new(Node {
+    data,
+    next: None,
+    prev: None
+  });
+  if let Some(old_head) = list.head {
+    // list had at least one element
+    new_node.next = Some(old_head);
+    old_head.prev = Some(new_node);
+    list.head = Some(new_node);
+  } else {
+    // list was empty
+    list.head = Some(new_node);
+    list.tail = Some(new_node);
+  }
+
+  new_node
+}
+
+fn pop(
+  list: &mut LinkedList
+) -> Option<Rc<Node>> {
+  if let Some(old_head) = list.head {
+    list.head = old_head.next;
+    if let Some(new_head) = list.head {
+      new_head.prev = None;
+    } else {
+      // removing the current item makes the list empty
+      list.tail = None;
+    }
+    old_head.prev = None;
+    old_head.next = None;
+    Some(old_head)
+  } else {
+    // list is empty
+    None
+  }
+}
+
+fn pop_front(
+  list: &mut LinkedList
+) -> Option<Rc<Node>> {
+  if let Some(old_tail) = list.tail {
+    list.tail = old_tail.prev;
+    if let Some(new_tail) = list.tail {
+      new_tail.next = None;
+    } else {
+      // removing the current item makes the list empty
+      list.head = None;
+    }
+    old_tail.prev = None;
+    old_tail.next = None;
+    Some(old_tail)
+  } else {
+    // list is empty
+    None
+  }
+}
+
 
 fn parse_input(
   lines: &mut dyn Iterator<Item=String>
@@ -56,11 +143,14 @@ fn solve(
   extras: usize,
   iterations: usize,
   max_size: usize
-) -> usize {
-  let mut cups = input.iter().copied().collect::<VecDeque<usize>>();
+) -> String {
+  let mut cups = LinkedList {head: None, tail: None};
+  for i in input {
+    append(&mut cups, *i);
+  }
 
   for i in 10..=extras {
-    cups.push_back(i);
+    append(&mut cups, i);
   }
 
   for _ in 0..iterations {
@@ -69,11 +159,15 @@ fn solve(
     current cup. They are removed from the circle; cup spacing is adjusted
     as necessary to maintain the circle.
     */
-    let current_cup = cups.pop_front().unwrap();
-    cups.push_back(current_cup);
-    let first = cups.pop_front().unwrap();
-    let second = cups.pop_front().unwrap();
-    let third = cups.pop_front().unwrap();
+    let current_cup = pop(&mut cups);
+    let current_cup = current_cup.unwrap().data;
+    append(&mut cups, current_cup);
+    let first = pop(&mut cups);
+    let first = first.unwrap().data;
+    let second = pop(&mut cups);
+    let second = second.unwrap().data;
+    let third = pop(&mut cups);
+    let third = third.unwrap().data;
 
     let destination = calc_destination_optimized(
       current_cup,
@@ -87,34 +181,39 @@ fn solve(
     The crab selects a new current cup: the cup which is immediately
     clockwise of the current cup.
     */
-    while let Some(i) = cups.pop_front() {
-      cups.push_back(i);
+    while let Some(i) = pop_front(&mut cups) {
+      let i = i.data;
+      append(&mut cups, i);
       if i == current_cup {
         break;
       } else if i == destination {
-        cups.push_back(first);
-        cups.push_back(second);
-        cups.push_back(third);
+        append(&mut cups, first);
+        append(&mut cups, second);
+        append(&mut cups, third);
       }
     }
   }
+
   /*
   After the crab is done, what order will the cups be in? Starting
   after the cup labeled 1, collect the other cups' labels clockwise
   into a single string with no extra characters; each number except
   1 should appear exactly once.
   */
-  while let Some(i) = cups.pop_front() {
+  while let Some(i) = pop_front(&mut cups) {
+    let i = i.data;
     if i == 1 {
       break;
     }
-    cups.push_back(i);
+    append(&mut cups, i);
   }
 
-  cups.iter()
-    .map(|v| std::char::from_digit(*v as u32, 10).unwrap())
-    .collect::<String>()
-    .parse::<usize>().unwrap()
+  let mut  result = String::new();
+  while let Some(i) = pop(&mut cups) {
+    let i = i.data;
+    result.push(std::char::from_digit(i as u32, 10).unwrap())
+  }
+  result
 }
 
 fn main() {
