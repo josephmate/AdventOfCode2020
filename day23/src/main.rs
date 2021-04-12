@@ -8,91 +8,11 @@ use std::env;
 use std::cmp::Ordering;
 use std::rc::Rc;
 
-/*
-head                       tail
-|                            |
-v                            v
-1  --next-->  2  --next-->   3
-^            | ^            |
-|           /  |           /          
- \-----prev     \-----prev
 
-*/
-struct LinkedList {
-  head: Option<Rc<Node>>,
-  tail: Option<Rc<Node>>
+struct CupPointer {
+  next_cup: usize,
+  prev_cup: usize,
 }
-
-struct Node {
-  data: usize,
-  next: Option<Rc<Node>>,
-  prev: Option<Rc<Node>>
-}
-
-fn append(
-  list: &mut LinkedList,
-  data: usize
-) -> Rc<Node>
-{
-  let new_node = Rc::new(Node {
-    data,
-    next: None,
-    prev: None
-  });
-  if let Some(old_head) = list.head {
-    // list had at least one element
-    new_node.next = Some(old_head);
-    old_head.prev = Some(new_node);
-    list.head = Some(new_node);
-  } else {
-    // list was empty
-    list.head = Some(new_node);
-    list.tail = Some(new_node);
-  }
-
-  new_node
-}
-
-fn pop(
-  list: &mut LinkedList
-) -> Option<Rc<Node>> {
-  if let Some(old_head) = list.head {
-    list.head = old_head.next;
-    if let Some(new_head) = list.head {
-      new_head.prev = None;
-    } else {
-      // removing the current item makes the list empty
-      list.tail = None;
-    }
-    old_head.prev = None;
-    old_head.next = None;
-    Some(old_head)
-  } else {
-    // list is empty
-    None
-  }
-}
-
-fn pop_front(
-  list: &mut LinkedList
-) -> Option<Rc<Node>> {
-  if let Some(old_tail) = list.tail {
-    list.tail = old_tail.prev;
-    if let Some(new_tail) = list.tail {
-      new_tail.next = None;
-    } else {
-      // removing the current item makes the list empty
-      list.head = None;
-    }
-    old_tail.prev = None;
-    old_tail.next = None;
-    Some(old_tail)
-  } else {
-    // list is empty
-    None
-  }
-}
-
 
 fn parse_input(
   lines: &mut dyn Iterator<Item=String>
@@ -144,54 +64,94 @@ fn solve(
   iterations: usize,
   max_size: usize
 ) -> String {
-  let mut cups = LinkedList {head: None, tail: None};
-  for i in input {
-    append(&mut cups, *i);
+
+  let mut cups = HashMap::new();
+  for i in 0..input.len() {
+    if i == 0 {
+      cups.insert(input[i],
+        CupPointer {
+          prev_cup: 0,
+          next_cup: input[i+1],
+        }
+      );
+    } else if i == input.len() - 1 {
+      cups.insert(input[i],
+        CupPointer {
+          prev_cup: input[i-1],
+          next_cup: 0,
+        }
+      );
+    } else {
+      cups.insert(input[i],
+        CupPointer {
+          prev_cup: input[i-1],
+          next_cup: input[i+1],
+        }
+      );
+    }
   }
 
   for i in 10..=extras {
-    append(&mut cups, i);
+    if i == 10 {
+      cups.get_mut(&input[input.len()-1]).unwrap().next_cup = i;
+      cups.insert(i,
+        CupPointer{
+          prev_cup: input[input.len()-1],
+          next_cup: i+1
+        }
+      );
+    } else if i == extras {
+      cups.get_mut(&input[0]).unwrap().prev_cup = i;
+      cups.insert(i,
+        CupPointer{
+          prev_cup: i-1,
+          next_cup: input[0]
+        }
+      );
+    } else {
+      cups.insert(i,
+        CupPointer{
+          prev_cup: i-1,
+          next_cup: i+1
+        }
+      );
+    }
   }
 
+  let mut current_cup = input[0];
   for _ in 0..iterations {
     /*
-    The crab picks up the three cups that are immediately clockwise of the
-    current cup. They are removed from the circle; cup spacing is adjusted
-    as necessary to maintain the circle.
+    The crab picks up the three cups that are immediately clockwise of the current cup.
+    They are removed from the circle; cup spacing is adjusted as necessary to maintain the circle.
     */
-    let current_cup = pop(&mut cups);
-    let current_cup = current_cup.unwrap().data;
-    append(&mut cups, current_cup);
-    let first = pop(&mut cups);
-    let first = first.unwrap().data;
-    let second = pop(&mut cups);
-    let second = second.unwrap().data;
-    let third = pop(&mut cups);
-    let third = third.unwrap().data;
+    let first = cups[&current_cup].next_cup;
+    let second = cups[&first].next_cup;
+    let third = cups[&second].next_cup;
+    // connect the current up to the one after the third cup since they have been removed
+    cups.get_mut(&current_cup).unwrap().next_cup = cups[&third].next_cup;
 
     let destination = calc_destination_optimized(
       current_cup,
       vec![first, second, third],
       max_size
     );
+
     /*
     The crab places the cups it just picked up so that they are
     immediately clockwise of the destination cup. They keep the same order
     as when they were picked up.
+    */
+    let next_to_destination = cups[&destination].next_cup;
+    cups.get_mut(&destination).unwrap().next_cup = first;
+    cups.get_mut(&first).unwrap().prev_cup = destination;
+    cups.get_mut(&third).unwrap().next_cup = next_to_destination;
+    cups.get_mut(&next_to_destination).unwrap().prev_cup = third;
+
+    /*
     The crab selects a new current cup: the cup which is immediately
     clockwise of the current cup.
     */
-    while let Some(i) = pop_front(&mut cups) {
-      let i = i.data;
-      append(&mut cups, i);
-      if i == current_cup {
-        break;
-      } else if i == destination {
-        append(&mut cups, first);
-        append(&mut cups, second);
-        append(&mut cups, third);
-      }
-    }
+    current_cup = cups[&current_cup].next_cup;
   }
 
   /*
@@ -200,19 +160,13 @@ fn solve(
   into a single string with no extra characters; each number except
   1 should appear exactly once.
   */
-  while let Some(i) = pop_front(&mut cups) {
-    let i = i.data;
-    if i == 1 {
-      break;
-    }
-    append(&mut cups, i);
+  let mut current_gathering_cup = cups[&1].next_cup;
+  let mut  result = String::new();
+  while current_gathering_cup != 1 {
+    result.push(std::char::from_digit(current_gathering_cup as u32, 10).unwrap());
+    current_gathering_cup = cups[&current_gathering_cup].next_cup;
   }
 
-  let mut  result = String::new();
-  while let Some(i) = pop(&mut cups) {
-    let i = i.data;
-    result.push(std::char::from_digit(i as u32, 10).unwrap())
-  }
   result
 }
 
