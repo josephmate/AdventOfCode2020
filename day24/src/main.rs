@@ -91,20 +91,90 @@ fn path_to_coord(path: String) -> (i64, i64) {
   (x, y)
 }
 
-fn count_odd_flips(coords: &[(i64,i64)]) -> usize {
+fn group_by_coord(coords: &[(i64,i64)]) -> HashMap<(i64,i64), usize> {
   let mut flip_counts: HashMap<(i64,i64), usize> = HashMap::new();
   for coord in coords {
     let count = flip_counts.entry(*coord).or_insert(0);
     *count += 1;
   }
+  flip_counts
+}
 
+fn count_odd_flips(coords: &[(i64,i64)]) -> usize {
+  let flip_counts = group_by_coord(coords);
   flip_counts.values()
     .filter(|count| *count % 2 == 1)
     .count()
 }
 
-fn simulate_hexagonal_game_of_life(_initial_coords: &[(i64,i64)]) -> usize {
-  1
+fn calc_neighbours((x,y): (i64,i64)) -> Vec<(i64,i64)> {
+  return vec![
+    (x+2,y  ), // e
+    (x-2,y  ), // w
+    (x+1,y+1), // ne
+    (x-1,y+1), // nw
+    (x+1,y-1), // se
+    (x-1,y-1), // sw
+  ];
+}
+
+fn calc_interesting_coords(current_state: &HashSet<(i64,i64)>) -> HashSet<(i64,i64)> {
+  let mut interesting_coords = HashSet::new();
+  for coord in current_state {
+    interesting_coords.insert(*coord);
+    for neighbour in calc_neighbours(*coord) {
+      interesting_coords.insert(neighbour);
+    }
+  }
+  interesting_coords
+}
+
+fn advance_state(current_state: HashSet<(i64,i64)>) -> HashSet<(i64,i64)> {
+  let mut new_state = HashSet::new();
+
+  let interesting_coords = calc_interesting_coords(&current_state);
+  for interesting_coord in interesting_coords {
+    let neighbours = calc_neighbours(interesting_coord);
+    let odd_neighbour_count = neighbours.iter()
+        .filter(|neighbour| current_state.contains(neighbour))
+        .count();
+    if current_state.contains(&interesting_coord) {
+      // Any black tile with zero or more than 2 black tiles immediately adjacent to it is flipped to white.
+      if odd_neighbour_count >= 1 && odd_neighbour_count <= 2 {
+        new_state.insert(interesting_coord);
+      }
+    } else {
+      // Any white tile with exactly 2 black tiles immediately adjacent to it is flipped to black.
+      if odd_neighbour_count == 2 {
+        new_state.insert(interesting_coord);
+      }
+    }
+  }
+
+  new_state
+}
+
+fn simulate_hexagonal_game_of_life(initial_coords: &[(i64,i64)]) -> usize {
+  let mut current_state = HashSet::new();
+  let flip_counts = group_by_coord(initial_coords);
+  for ((x,y), count) in flip_counts {
+    if count % 2 == 1 {
+      current_state.insert((x,y));
+    }
+  }
+
+  let mut most_recent_count = 0;
+  for day in 1..=100 {
+    most_recent_count = current_state.len();
+    if (day >= 1 && day <= 10) || (day % 10 == 0) {
+      println!("Day {}: {}", day, most_recent_count);
+    }
+    if day < 200 {
+      current_state = advance_state(current_state);
+    }
+  }
+
+  most_recent_count
 }
 
 fn main() {
