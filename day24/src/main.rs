@@ -165,12 +165,10 @@ fn simulate_hexagonal_game_of_life(initial_coords: &[(i64,i64)]) -> usize {
 
   let mut most_recent_count = 0;
   for day in 1..=100 {
+    current_state = advance_state(current_state);
     most_recent_count = current_state.len();
     if (day >= 1 && day <= 10) || (day % 10 == 0) {
       println!("Day {}: {}", day, most_recent_count);
-    }
-    if day < 200 {
-      current_state = advance_state(current_state);
     }
   }
 
