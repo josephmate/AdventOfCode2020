@@ -91,10 +91,10 @@ fn path_to_coord(path: String) -> (i64, i64) {
   (x, y)
 }
 
-fn count_odd_flips(coords: &mut dyn Iterator<Item = (i64,i64)>) -> usize {
+fn count_odd_flips(coords: &[(i64,i64)]) -> usize {
   let mut flip_counts: HashMap<(i64,i64), usize> = HashMap::new();
-  while let Some(coord) = (*coords).next() {
-    let count = flip_counts.entry(coord).or_insert(0);
+  for coord in coords {
+    let count = flip_counts.entry(*coord).or_insert(0);
     *count += 1;
   }
 
@@ -103,14 +103,18 @@ fn count_odd_flips(coords: &mut dyn Iterator<Item = (i64,i64)>) -> usize {
     .count()
 }
 
+fn simulate_hexagonal_game_of_life(_initial_coords: &[(i64,i64)]) -> usize {
+  1
+}
+
 fn main() {
   // let args: Vec<String> = env::args().collect();
-  let odd_flips = count_odd_flips(
-    &mut std::io::stdin().lock().lines()
-      .map(|line| line.unwrap())
-      .map(path_to_coord)
-  );
-  println!("{}", odd_flips);
+  let day_one_coords: Vec<(i64,i64)> = std::io::stdin().lock().lines()
+    .map(|line| line.unwrap())
+    .map(path_to_coord)
+    .collect();
+  println!("{}", count_odd_flips(&day_one_coords));
+  println!("{}", simulate_hexagonal_game_of_life(&day_one_coords));
 }
 
 #[cfg(test)]
