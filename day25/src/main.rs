@@ -70,6 +70,8 @@ fn main() {
   println!("encryption_key {}", transform(door_public_key, card_loop_size));
   // makes the same
   //println!("encryption_key {}", transform(card_public_key, door_loop_size));
+
+  // there is no part 2! once you obtain 49 stars, you complete part 2.
 }
 
 #[cfg(test)]
