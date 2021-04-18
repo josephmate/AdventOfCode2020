@@ -1,1 +1,6 @@
-20899048083289
+initial_subject_number 7
+card_public_key 5764801
+door_public_key 17807724
+card_loop_size 8
+door_loop_size 11
+encryption_key 14897079
